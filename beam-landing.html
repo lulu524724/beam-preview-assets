@@ -6,7 +6,8 @@
 <title>Beam</title>
 <meta name="description" content="A little light, sent your way.">
 
-<!-- Open Graph -->
+<!-- Open Graph: crawlers don't run JS, so this card is always the same generic
+     branding, regardless of which specific message the link points to. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Beam">
 <meta property="og:title" content="Beam">
@@ -15,7 +16,6 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 
-<!-- Twitter/X card (also used by some Android/WhatsApp crawlers) -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Beam">
 <meta name="twitter:description" content="A little light, sent your way.">
@@ -23,27 +23,99 @@
 
 <style>
   :root{color-scheme:dark;}
-  html,body{margin:0;padding:0;height:100%;}
+  html,body{margin:0;padding:0;min-height:100%;}
   body{
-    display:flex;align-items:flex-end;justify-content:flex-start;
     min-height:100vh;
-    background-image:linear-gradient(180deg, rgba(6,18,38,0) 40%, rgba(6,18,38,.6) 100%),
+    background-image:linear-gradient(180deg, rgba(6,18,38,.15) 0%, rgba(6,18,38,.55) 60%, rgba(6,18,38,.85) 100%),
       url("beam-og-image.png");
-    background-size:cover;background-position:center;
+    background-size:cover;background-position:center;background-attachment:fixed;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
-    padding:40px;box-sizing:border-box;
+    display:flex;align-items:flex-end;justify-content:center;
+    padding:24px;box-sizing:border-box;
   }
+  main{width:100%;max-width:420px;padding-bottom:24px;}
   h1{
     font-family:Georgia,'Times New Roman',serif;
-    font-size:40px;color:#FFF6E4;margin:0 0 6px;letter-spacing:.5px;
+    font-size:40px;color:#FFF6E4;margin:0 0 18px;letter-spacing:.5px;
   }
-  p.body{color:#F1E9DC;font-size:16px;line-height:1.5;margin:0;max-width:360px;}
+  .card{
+    background:rgba(11,34,53,.55);
+    border:1px solid rgba(197,213,223,.25);
+    border-radius:18px;
+    padding:22px;
+    backdrop-filter:blur(6px);
+    -webkit-backdrop-filter:blur(6px);
+  }
+  .message{
+    color:#FFF6E4;font-size:19px;line-height:1.55;
+    font-family:Georgia,'Times New Roman',serif;
+    white-space:pre-wrap;word-wrap:break-word;
+    min-height:1.5em;
+  }
+  .message.placeholder{color:#C7D3DB;font-family:inherit;font-size:16px;}
+  .sub{color:#AEBCC5;font-size:13px;margin-top:14px;}
+  .cta{
+    display:block;width:100%;margin-top:22px;padding:14px 0;border:none;border-radius:999px;
+    background:#FFF6E4;color:#1A1A1A;font-size:16px;font-weight:600;cursor:pointer;
+  }
+  .cta:active{opacity:.85;}
+  #signup{display:none;margin-top:16px;}
+  .provider{
+    display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+    margin-top:10px;padding:13px 0;border-radius:999px;
+    background:rgba(255,246,228,.08);border:1px solid rgba(197,213,223,.3);
+    color:#FFF6E4;font-size:15px;cursor:pointer;
+  }
+  #signupNote{color:#D9E4EC;font-size:13px;line-height:1.5;margin-top:14px;display:none;}
 </style>
 </head>
 <body>
-  <div>
-    <h1>Beam</h1>
-    <p class="body">Someone sent you a Beam &mdash; a small, warm thought from a friend.</p>
+<main>
+  <h1>Beam</h1>
+  <div class="card">
+    <div id="message" class="message placeholder">Someone sent you a Beam &mdash; a small, warm thought from a friend.</div>
+    <div class="sub">This preview isn&rsquo;t sent to your Beam account. Get Beam to keep the ones you want.</div>
+    <button class="cta" id="getBeam">Get Beam</button>
+    <div id="signup">
+      <button class="provider" data-provider="Apple">Continue with Apple</button>
+      <button class="provider" data-provider="Google">Continue with Google</button>
+      <button class="provider" data-provider="Email">Continue with Email</button>
+    </div>
+    <div id="signupNote"></div>
   </div>
+</main>
+<script>
+(function(){
+  var SUPABASE_URL='https://elbvuesmkcaywjygpsxq.supabase.co';
+  var SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVsYnZ1ZXNta2NheXdqeWdwc3hxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzNDY5NjksImV4cCI6MjEwNDkyMjk2OX0.2i7bbmjtRL6OomJa9ARrSovjIdp1fkOaLFpAtyu09tw';
+  var id=new URLSearchParams(location.search).get('id');
+  var messageEl=document.getElementById('message');
+  if(id){
+    fetch(SUPABASE_URL+'/rest/v1/rpc/get_beam',{
+      method:'POST',
+      headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({beam_id:id})
+    }).then(function(r){return r.ok?r.json():[];}).then(function(rows){
+      var row=rows&&rows[0];
+      if(row&&row.message){
+        messageEl.textContent=row.message;
+        messageEl.classList.remove('placeholder');
+      }
+    }).catch(function(){});
+  }
+  document.getElementById('getBeam').addEventListener('click',function(){
+    document.getElementById('signup').style.display='block';
+    this.style.display='none';
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.provider'),function(btn){
+    btn.addEventListener('click',function(){
+      var note=document.getElementById('signupNote');
+      note.style.display='block';
+      note.textContent='This is a preview of the Beam sign-up experience with '+btn.dataset.provider+'. Beam isn’t available to download yet — no account was created.';
+      document.getElementById('signup').style.display='none';
+    });
+  });
+})();
+</script>
 </body>
 </html>
