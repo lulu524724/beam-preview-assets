@@ -34,17 +34,17 @@
   body{min-height:100vh;min-height:100dvh;font-family:"Beam Plex",sans-serif;font-weight:300;display:flex;justify-content:center;position:relative;overflow-x:hidden}
   main{width:100%;max-width:440px;padding:24px 16px 40px;display:flex;flex-direction:column;align-items:center;position:relative;z-index:1}
   .brand{align-self:flex-start;font-weight:400;font-size:24px;letter-spacing:.3px;margin:4px 0 0}
-  .lead{font-size:18px;color:var(--ink-soft);margin:28px 0 20px;text-align:center}
+  .lead{font-size:18px;font-weight:400;color:var(--ink);margin:28px 0 50px;text-align:center}
   .orb{
-    width:min(82vw,340px);aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;padding:14%;
+    width:min(74vw,300px);aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;padding:14%;
     background:radial-gradient(circle at 38% 32%,var(--orb-center) 0%,var(--orb-mid) 55%,var(--orb-edge) 100%);
     border:1.5px solid var(--orb-ring);
     box-shadow:0 0 0 22px rgba(255,255,255,.28),0 14px 32px rgba(18,48,77,.18),inset 0 0 0 7px rgba(255,255,255,.5);
   }
   .message{font-size:22px;line-height:1.35;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere;max-height:100%;overflow:auto}
   .message.medium{font-size:19px}.message.long{font-size:16px}
-  .note{font-size:15px;color:var(--ink-soft);margin-top:30px;text-align:center}
-  .invite{width:100%;margin-top:28px;display:none}
+  .note{font-size:15px;color:var(--ink-soft);margin-top:50px;text-align:center}
+  .invite{width:100%;margin-top:50px;display:none}
   .invite.show{display:block}
   .keep{font-size:17px;text-align:center;margin:0 0 14px}
   .btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:52px;border-radius:999px;font:400 17px "Beam Plex",sans-serif;cursor:pointer}
@@ -53,6 +53,16 @@
   .btn:active{opacity:.85}
   .btn svg{width:20px;height:20px;flex:none}
   #signup{display:none;margin-top:6px}
+  /* Report: quiet, after everything else (DESIGN3 §12: a way to flag unwanted Beams). */
+  .report{width:100%;margin-top:32px;text-align:center}
+  .linkbtn{background:none;border:none;color:var(--ink-soft);font:400 16px "Beam Plex",sans-serif;text-decoration:underline;text-underline-offset:3px;min-height:44px;min-width:44px;padding:0 12px;cursor:pointer}
+  #reportForm{text-align:left}
+  #reportForm label{display:block;font-size:17px;margin:0 0 8px}
+  #reportReason{width:100%;min-height:96px;border:1px solid var(--ink-soft);border-radius:14px;padding:12px;font:300 17px "Beam Plex",sans-serif;color:var(--ink);background:rgba(255,255,255,.6);resize:vertical}
+  #reportForm .btn{margin-top:12px}
+  #reportForm .linkbtn{display:block;margin:8px auto 0}
+  #reportStatus{font-size:16px;line-height:1.5;color:var(--ink);margin:12px 0 0}
+  #reportStatus:empty{display:none}
   #signupNote{display:none;font-size:15px;line-height:1.5;color:var(--ink-soft);margin-top:14px;text-align:center}
   /* A few soft lights, only in the bottom third. */
   .lights{position:fixed;left:0;right:0;bottom:0;height:33vh;pointer-events:none;z-index:0}
@@ -78,19 +88,58 @@
     </div>
     <p id="signupNote" role="status"></p>
   </section>
+
+  <section class="report" id="report" aria-label="Report this Beam" hidden>
+    <button class="linkbtn" id="reportOpen" type="button" aria-expanded="false" aria-controls="reportForm">Report this Beam</button>
+    <form id="reportForm" hidden>
+      <label for="reportReason">What’s wrong? (optional)</label>
+      <textarea id="reportReason" maxlength="500"></textarea>
+      <button class="btn primary" id="reportSend" type="submit">Send report</button>
+      <button class="linkbtn" id="reportCancel" type="button">Cancel</button>
+    </form>
+    <p id="reportStatus" role="status"></p>
+  </section>
 </main>
 <script>
 (function(){
   var SUPABASE_URL='https://elbvuesmkcaywjygpsxq.supabase.co';
-  // Public "anon" key: it can only call create_beam and get_beam (see the app's docs/supabase-setup.sql).
+  // Public "anon" key: it can only open a Beam by its id (get_beam) and report one (report_beam).
+  // See the app repo's supabase/migrations.
   var SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVsYnZ1ZXNta2NheXdqeWdwc3hxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzNDY5NjksImV4cCI6MjEwNDkyMjk2OX0.2i7bbmjtRL6OomJa9ARrSovjIdp1fkOaLFpAtyu09tw';
   var id=new URLSearchParams(location.search).get('id');
   var messageEl=document.getElementById('message'),noteEl=document.getElementById('note'),invite=document.getElementById('invite');
   function done(){invite.classList.add('show');}
+  function rpc(fn,body){
+    return fetch(SUPABASE_URL+'/rest/v1/rpc/'+fn,{
+      method:'POST',
+      headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+  }
+  // Reporting is offered only once a Beam has opened. Reports go to the Beam team for review;
+  // nothing is hidden automatically, and the reporter isn't identified.
+  var report=document.getElementById('report'),reportOpen=document.getElementById('reportOpen'),reportForm=document.getElementById('reportForm'),
+      reportReason=document.getElementById('reportReason'),reportSend=document.getElementById('reportSend'),reportStatus=document.getElementById('reportStatus');
+  function setForm(open){reportForm.hidden=!open;reportOpen.hidden=open;reportOpen.setAttribute('aria-expanded',String(open));if(open)reportReason.focus();else reportOpen.focus();}
+  reportOpen.addEventListener('click',function(){reportStatus.textContent='';setForm(true);});
+  document.getElementById('reportCancel').addEventListener('click',function(){setForm(false);});
+  reportForm.addEventListener('submit',function(e){
+    e.preventDefault();
+    reportSend.disabled=true;reportSend.textContent='Sending…';reportStatus.textContent='';
+    rpc('report_beam',{beam_id:id,reason:reportReason.value.trim()||null}).then(function(r){
+      if(!r.ok)throw new Error(String(r.status));
+      reportForm.hidden=true;reportOpen.hidden=true;
+      reportStatus.textContent='Thank you. Your report was sent, and we’ll look into it.';
+    }).catch(function(){
+      reportSend.disabled=false;reportSend.textContent='Send report';
+      reportStatus.textContent='Your report couldn’t be sent. Check your connection and try again.';
+    });
+  });
   function show(text){
     // The sender's exact words, never trimmed or edited (DESIGN3 §3.5).
     messageEl.textContent=text;
     messageEl.className='message'+(text.length>160?' long':text.length>70?' medium':'');
+    report.hidden=false;
     done();
   }
   function missing(){noteEl.textContent='The words in this Beam couldn’t be opened. Ask the sender to share it again.';noteEl.hidden=false;done();}
@@ -106,11 +155,7 @@
     });
   });
   if(!id){done();return;}
-  fetch(SUPABASE_URL+'/rest/v1/rpc/get_beam',{
-    method:'POST',
-    headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
-    body:JSON.stringify({beam_id:id})
-  }).then(function(r){return r.ok?r.json():[];}).then(function(rows){
+  rpc('get_beam',{beam_id:id}).then(function(r){return r.ok?r.json():[];}).then(function(rows){
     var row=rows&&rows[0];
     if(row&&row.message)show(row.message);else missing();
   }).catch(missing);
