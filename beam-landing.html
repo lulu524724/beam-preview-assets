@@ -102,10 +102,15 @@
 </main>
 <script>
 (function(){
-  var SUPABASE_URL='https://elbvuesmkcaywjygpsxq.supabase.co';
-  // Public "anon" key: it can only open a Beam by its id (get_beam) and report one (report_beam).
-  // See the app repo's supabase/migrations.
-  var SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVsYnZ1ZXNta2NheXdqeWdwc3hxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzNDY5NjksImV4cCI6MjEwNDkyMjk2OX0.2i7bbmjtRL6OomJa9ARrSovjIdp1fkOaLFpAtyu09tw';
+  // Public "anon" keys: they can only open a Beam by its id (get_beam) and report one (report_beam).
+  // See the app repo's supabase/migrations. Links from test builds add "&p=dev" (the beam-dev
+  // practice project); every other link reads the live project. Only these two are allowed.
+  var PROJECTS={
+    live:{url:'https://elbvuesmkcaywjygpsxq.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVsYnZ1ZXNta2NheXdqeWdwc3hxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzNDY5NjksImV4cCI6MjEwNDkyMjk2OX0.2i7bbmjtRL6OomJa9ARrSovjIdp1fkOaLFpAtyu09tw'},
+    dev:{url:'https://qcchxswptknaojhtfinf.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjY2h4c3dwdGtuYW9qaHRmaW5mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1MzE1NDMsImV4cCI6MjEwNjEwNzU0M30.L5uLYQI_2-AVmtOkZZADeCi-dr6vMW9URAJnOPbcnLU'}
+  };
+  var project=new URLSearchParams(location.search).get('p')==='dev'?PROJECTS.dev:PROJECTS.live;
+  var SUPABASE_URL=project.url,SUPABASE_ANON_KEY=project.key;
   var id=new URLSearchParams(location.search).get('id');
   var messageEl=document.getElementById('message'),noteEl=document.getElementById('note'),invite=document.getElementById('invite');
   function done(){invite.classList.add('show');}
